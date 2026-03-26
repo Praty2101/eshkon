@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
-import type { Page } from "@/lib/schema";
+import type { Page, SectionType } from "@/lib/schema";
 import {
   StoreProvider,
   useAppDispatch,
@@ -79,8 +79,8 @@ function StudioEditor({ initialPage }: StudioClientProps) {
   }, [page, dispatch]);
 
   const handleAddSection = useCallback(
-    (type: string) => {
-      const defaultProps: Record<string, Record<string, unknown>> = {
+    (type: SectionType) => {
+      const defaultProps: Record<SectionType, Record<string, unknown>> = {
         hero: {
           heading: "New Hero Section",
           subheading: "Add your subheading here",
@@ -220,7 +220,7 @@ function StudioEditor({ initialPage }: StudioClientProps) {
                   ].map(({ type, label, icon }) => (
                     <button
                       key={type}
-                      onClick={() => handleAddSection(type)}
+                      onClick={() => handleAddSection(type as SectionType)}
                       className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 p-4 text-center transition-all hover:border-purple-400 hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-slate-700 dark:hover:border-purple-600 dark:hover:bg-purple-950/30"
                     >
                       <span className="text-2xl" aria-hidden="true">{icon}</span>
@@ -374,7 +374,7 @@ function PropertyEditor({
   props,
 }: {
   sectionId: string;
-  type: string;
+  type: SectionType;
   props: Record<string, unknown>;
 }) {
   const dispatch = useAppDispatch();
@@ -430,7 +430,7 @@ interface FieldDef {
   placeholder?: string;
 }
 
-function getEditableFields(sectionType: string): FieldDef[] {
+function getEditableFields(sectionType: SectionType): FieldDef[] {
   switch (sectionType) {
     case "hero":
       return [
