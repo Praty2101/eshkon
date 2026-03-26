@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Page Studio
 
-## Getting Started
+A schema-driven landing page studio that loads definition from Contentful, edits pages with a lightweight WYSIWYG studio backed by Redux, and publishes immutable versioned releases enforcing automated SemVer. WCAG 2.2 AAA-oriented.
 
-First, run the development server:
+## 1. Architecture Overview
+Page Studio runs on Next.js App Router:
+- **Renderer (`/preview/[slug]`)**: Server component fetches initial draft/published JSON (from Contentful or mock data fallback), validates against Zod schemas, then a `<PageRenderer>` dynamic component maps logical section structures (e.g. `hero`) to typed React UI components from `sectionRegistry.ts`. Any bad data is gracefully caught by an ErrorBoundary.
+- **Studio (`/studio/[slug]`)**: Uses Redux for complex state mutation. The interface handles rearranging, adding, and modifying properties inline across a left sidebar (structure), center (preview), and right sidebar (props editor). Protected by server-side middleware enforcing the `"editor"` role.
+- **Publish API (`/api/publish`)**: Enforces `"publisher"` role via middleware and server action. Converts the Redux draft to an immutable snapshot (`releases/<slug>/<version>.json`).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 2. Redux Slice Responsibilities
+We employ Redux Toolkit since the editor relies on complex cascading structure changes safely synced across views:
+- **`draftPageSlice`**: Persists the single source of truth for the active edit session to localStorage. Manages `addSection`, `removeSection`, `reorderSections`, and `updateSectionProps`.
+- **`uiSlice`**: Pure transient UI layer. Tracks selected tools, active sidebar states, and whether "Preview Mode" is toggled on to hide structural IDE overlays.
+- **`publishSlice`**: Coordinates the API publish lifecycle (`idle` → `diffing` → `publishing` → `success`/`error`), holding current SemVer diff metadata up efficiently.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 3. Contentful Model + Adapter Explanation
+- **Model**: A Contentful Entry for `Page` contains a slug string and an array of JSON `sections` mapping `{ type: string, props: JSON }`. 
+- **Adapter (`lib/contentful/contentfulClient.ts`)**: Encapsulates all Contentful SDK logic. The app relies strictly on `AdaptedPage`. The adapter pulls `fields.sections` into the safe typed object. Drafts (preview SDK) vs Published (delivery SDK) content resolution occurs silently within `fetchPageBySlug()`. Only the adapter "knows" Contentful exists.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 4. Publish + SemVer Logic
+When `/api/publish` receives a valid draft, it compares it structurally against the `releases` directory's latest snapshot:
+- **Patch (1.0.x)**: Small safe modifications (text changes, property values).
+- **Minor (1.x.0)**: Forward compatible structural enhancements (adding optional props or a brand new section).
+- **Major (x.0.0)**: Breaking or heavily disruptive changes (removing sections, changing a section type altogether, or deleting required fields).
+*Idempotent*: If there is mathematically zero diff, the API shortcuts and doesn't output an arbitrary release bump.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 5. Accessibility Evidence
+The app is built targeting automated WCAG 2.2 metrics with Axe:
+- **Components**: `shadcn/ui` and Radix primitives natively implement WAI-ARIA tabs, dialogs, and button interactivity.
+- **Micro-interactivity**: `motion-safe` media query wraps all hover/focus scale transforms protecting vestibular (prefers-reduced-motion) disabilities.
+- **Keyboard & Reader Testing**: Verified using Playwright injecting `axe-core`: `e2e/smoke.spec.ts`. All interactive cards inherently support strict `focus-visible` offset rings.
+- **Hierarchy Status**: The schemas mandate single-h1 hierarchy mapping inside `<main>`.
 
-## Learn More
+## 6. What is Incomplete and Why
+To meet the sprint timeline effectively, the following shortcuts were taken:
+- **Local JSON Releases & Storage**: Instead of wiring an external database + blob storage for published immutable JSONs, `fs` writes to the `/releases` root dir.
+- **Auth Provider Bypass**: Actual RBAC integration with an external JWT provider (like NextAuth or Clerk) was simulated in `middleware.ts` reading cookie toggles for standard demonstration velocity.
+- **Redux History Stack (Undo/Redo)**: Opted for persistence and immediate edits, bypassing command stack snapshots for `Cmd+Z` logic due to complexity.
+- **Dynamic Contentful Delivery Key Sync**: A hardcoded `.env` environment assumption exists for `CONTENTFUL_X_TOKEN`.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+*Run `npm run dev` to boot locally. Run `npx playwright test` to output CI accessibility JSON reports.*
