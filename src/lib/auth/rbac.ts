@@ -12,6 +12,32 @@
 
 export type Role = "viewer" | "editor" | "publisher";
 
+export const ROLE_OPTIONS: Array<{
+  role: Role;
+  label: string;
+  shortLabel: string;
+  description: string;
+}> = [
+  {
+    role: "viewer",
+    label: "Viewer",
+    shortLabel: "Viewer",
+    description: "Preview landing pages only.",
+  },
+  {
+    role: "editor",
+    label: "Editor",
+    shortLabel: "Editor",
+    description: "Edit drafts in the studio.",
+  },
+  {
+    role: "publisher",
+    label: "Admin (Publisher)",
+    shortLabel: "Admin",
+    description: "Edit drafts and publish immutable releases.",
+  },
+];
+
 export const ROLE_HIERARCHY: Record<Role, number> = {
   viewer: 0,
   editor: 1,
@@ -63,6 +89,6 @@ export function getUserRole(headers: Headers, cookies?: { get: (name: string) =>
   return "viewer";
 }
 
-function isValidRole(value: string): value is Role {
+export function isValidRole(value: string): value is Role {
   return value === "viewer" || value === "editor" || value === "publisher";
 }

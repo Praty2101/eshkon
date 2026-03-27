@@ -66,12 +66,9 @@ test.describe('Smoke tests & Accessibility', () => {
   });
 
   test('studio editor layout is accessible', async ({ page }) => {
-    // Navigate with editor cookie to bypass RBAC redirect
-    await page.context().addCookies([
-      { name: 'user-role', value: 'editor', domain: 'localhost', path: '/' }
-    ]);
-    
-    await page.goto('/studio/landing');
+    await page.goto('/login');
+    await page.getByRole('button', { name: /Continue as Editor/i }).click();
+    await page.waitForURL('**/studio/landing');
     await expect(page.getByRole('heading', { name: 'Page Studio', exact: true })).toBeVisible();
 
     const a11yResults = await new AxeBuilder({ page }).analyze();

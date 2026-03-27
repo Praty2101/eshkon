@@ -36,6 +36,12 @@ export default async function ForbiddenPage({ searchParams }: ForbiddenPageProps
           >
             View Preview
           </Link>
+          <Link
+            href="/login"
+            className="rounded-lg border border-amber-300 bg-amber-100 px-6 py-2.5 text-sm font-medium text-amber-900 hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700 focus-visible:ring-offset-2"
+          >
+            Switch Role
+          </Link>
         </div>
       </div>
     </div>

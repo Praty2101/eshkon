@@ -48,6 +48,12 @@ export default function GetStartedPage() {
           >
             Open Product Demo
           </Link>
+          <Link
+            href="/login"
+            className="inline-flex items-center justify-center rounded-full border border-amber-300 bg-amber-100 px-6 py-3 text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700 focus-visible:ring-offset-2"
+          >
+            Choose a Role
+          </Link>
         </div>
       </div>
     </main>
