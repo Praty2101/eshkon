@@ -1,18 +1,28 @@
 "use client";
 
-import type { Page } from "@/lib/schema";
+import { validatePage } from "@/lib/schema";
 import { PageRenderer } from "@/components/PageRenderer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 
 interface PreviewClientProps {
-  page: Page;
+  pageData: unknown;
   isPreview: boolean;
 }
 
-export function PreviewClient({ page, isPreview }: PreviewClientProps) {
+function PreviewContent({ pageData, isPreview }: PreviewClientProps) {
+  const validation = validatePage(pageData);
+
+  if (!validation.success) {
+    throw new Error(
+      `Invalid page data:\n${validation.errors.issues
+        .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
+        .join("\n")}`
+    );
+  }
+
   return (
-    <ErrorBoundary>
+    <>
       {isPreview && (
         <div
           className="sticky top-0 z-50 flex items-center justify-center gap-2 bg-amber-500 px-4 py-2 text-sm font-medium text-amber-950"
@@ -29,7 +39,15 @@ export function PreviewClient({ page, isPreview }: PreviewClientProps) {
           </Badge>
         </div>
       )}
-      <PageRenderer page={page} />
+      <PageRenderer page={validation.data} />
+    </>
+  );
+}
+
+export function PreviewClient(props: PreviewClientProps) {
+  return (
+    <ErrorBoundary>
+      <PreviewContent {...props} />
     </ErrorBoundary>
   );
 }

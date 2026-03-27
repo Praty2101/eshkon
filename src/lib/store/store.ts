@@ -4,12 +4,12 @@ import { uiSlice } from "./uiSlice";
 import { publishSlice } from "./publishSlice";
 
 // ── localStorage persistence ──────────────────────────────────
-const STORAGE_KEY = "page-studio-draft";
+const DEFAULT_STORAGE_KEY = "page-studio-draft";
 
-function loadPersistedState() {
+function loadPersistedState(storageKey: string) {
   if (typeof window === "undefined") return undefined;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (raw) {
       const parsed = JSON.parse(raw);
       return { draftPage: parsed.draftPage };
@@ -20,11 +20,11 @@ function loadPersistedState() {
   return undefined;
 }
 
-function saveState(state: RootState) {
+function saveState(state: RootState, storageKey: string) {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(
-      STORAGE_KEY,
+      storageKey,
       JSON.stringify({ draftPage: state.draftPage })
     );
   } catch {
@@ -41,8 +41,8 @@ const rootReducer = combineReducers({
 
 export type RootState = ReturnType<typeof rootReducer>;
 
-export function makeStore() {
-  const preloadedState = loadPersistedState();
+export function makeStore(storageKey = DEFAULT_STORAGE_KEY) {
+  const preloadedState = loadPersistedState(storageKey);
 
   const store = configureStore({
     reducer: rootReducer,
@@ -52,7 +52,7 @@ export function makeStore() {
 
   // Persist draftPage on every change
   store.subscribe(() => {
-    saveState(store.getState());
+    saveState(store.getState(), storageKey);
   });
 
   return store;

@@ -1,43 +1,90 @@
 # Page Studio
 
-A schema-driven landing page studio that loads definition from Contentful, edits pages with a lightweight WYSIWYG studio backed by Redux, and publishes immutable versioned releases enforcing automated SemVer. WCAG 2.2 AAA-oriented.
+A schema-driven landing page studio built with Next.js App Router, TypeScript, Redux Toolkit, Contentful, Tailwind, and shadcn/ui.
 
 ## 1. Architecture Overview
-Page Studio runs on Next.js App Router:
-- **Renderer (`/preview/[slug]`)**: Server component fetches initial draft/published JSON (from Contentful or mock data fallback), validates against Zod schemas, then a `<PageRenderer>` dynamic component maps logical section structures (e.g. `hero`) to typed React UI components from `sectionRegistry.ts`. Any bad data is gracefully caught by an ErrorBoundary.
-- **Studio (`/studio/[slug]`)**: Uses Redux for complex state mutation. The interface handles rearranging, adding, and modifying properties inline across a left sidebar (structure), center (preview), and right sidebar (props editor). Protected by server-side middleware enforcing the `"editor"` role.
-- **Publish API (`/api/publish`)**: Enforces `"publisher"` role via middleware and server action. Converts the Redux draft to an immutable snapshot (`releases/<slug>/<version>.json`).
+
+Page Studio has three main surfaces:
+
+- `/preview/[slug]`: Loads a page from the Contentful adapter when credentials are present, otherwise from local mock data for development. The client validates the page with Zod and renders sections through a single typed registry.
+- `/studio/[slug]`: Loads draft content, hydrates a per-page Redux store, and lets editors add, reorder, and edit supported section props with a WYSIWYG-lite experience.
+- `/api/publish`: Validates the draft, applies deterministic SemVer rules, and writes immutable JSON snapshots to `releases/<slug>/<version>.json`.
+
+Shared architecture rules:
+
+- Contentful-specific SDK logic stays in `src/lib/contentful/contentfulClient.ts`.
+- Section rendering stays in `src/lib/registry/sectionRegistry.ts`.
+- Zod schemas and section metadata live in `src/lib/schema/section.ts`.
+- Route and publish permissions are enforced server-side in `src/proxy.ts` and `src/app/api/publish/route.ts`.
 
 ## 2. Redux Slice Responsibilities
-We employ Redux Toolkit since the editor relies on complex cascading structure changes safely synced across views:
-- **`draftPageSlice`**: Persists the single source of truth for the active edit session to localStorage. Manages `addSection`, `removeSection`, `reorderSections`, and `updateSectionProps`.
-- **`uiSlice`**: Pure transient UI layer. Tracks selected tools, active sidebar states, and whether "Preview Mode" is toggled on to hide structural IDE overlays.
-- **`publishSlice`**: Coordinates the API publish lifecycle (`idle` → `diffing` → `publishing` → `success`/`error`), holding current SemVer diff metadata up efficiently.
+
+- `draftPageSlice`: Owns the editable draft page state, including title updates, prop changes, add/remove, and reorder operations.
+- `uiSlice`: Owns transient editor UI state such as the selected section, add-section dialog state, and preview mode toggle.
+- `publishSlice`: Owns publish lifecycle state, including pending/success/error status, changelog text, and the last published version.
+
+Draft persistence is isolated per slug using `page-studio-draft:<slug>` localStorage keys so one page draft cannot overwrite another.
 
 ## 3. Contentful Model + Adapter Explanation
-- **Model**: A Contentful Entry for `Page` contains a slug string and an array of JSON `sections` mapping `{ type: string, props: JSON }`. 
-- **Adapter (`lib/contentful/contentfulClient.ts`)**: Encapsulates all Contentful SDK logic. The app relies strictly on `AdaptedPage`. The adapter pulls `fields.sections` into the safe typed object. Drafts (preview SDK) vs Published (delivery SDK) content resolution occurs silently within `fetchPageBySlug()`. Only the adapter "knows" Contentful exists.
+
+The app expects a Contentful `page` content type with:
+
+- `pageId: string`
+- `slug: string`
+- `title: string`
+- `sections: Array<{ type: string; props: Record<string, unknown> }>`
+
+The adapter:
+
+- creates either the Content Delivery API client or Preview API client
+- fetches by slug
+- adapts Contentful fields into the app-facing `AdaptedPage` shape
+- keeps all Contentful SDK usage out of React UI code
+
+If Contentful credentials are absent, development falls back to local mock data. If credentials are present, the app uses Contentful only.
 
 ## 4. Publish + SemVer Logic
-When `/api/publish` receives a valid draft, it compares it structurally against the `releases` directory's latest snapshot:
-- **Patch (1.0.x)**: Small safe modifications (text changes, property values).
-- **Minor (1.x.0)**: Forward compatible structural enhancements (adding optional props or a brand new section).
-- **Major (x.0.0)**: Breaking or heavily disruptive changes (removing sections, changing a section type altogether, or deleting required fields).
-*Idempotent*: If there is mathematically zero diff, the API shortcuts and doesn't output an arbitrary release bump.
+
+Publishing compares the incoming draft to the latest stored release for the slug.
+
+Rules:
+
+- Patch: text changes, value changes, optional prop removal
+- Minor: added section, added optional prop
+- Major: removed section, section type change, removed required prop, added required prop
+
+Additional guarantees:
+
+- Re-publishing an identical draft is idempotent and does not create a new version.
+- Releases are stored as immutable snapshots in `releases/<slug>/<version>.json`.
+- Release lookup is semantic-version aware, so `10.0.0` sorts after `2.0.0`.
 
 ## 5. Accessibility Evidence
-The app is built targeting automated WCAG 2.2 metrics with Axe:
-- **Components**: `shadcn/ui` and Radix primitives natively implement WAI-ARIA tabs, dialogs, and button interactivity.
-- **Micro-interactivity**: `motion-safe` media query wraps all hover/focus scale transforms protecting vestibular (prefers-reduced-motion) disabilities.
-- **Keyboard & Reader Testing**: Verified using Playwright injecting `axe-core`: `e2e/smoke.spec.ts`. All interactive cards inherently support strict `focus-visible` offset rings.
-- **Hierarchy Status**: The schemas mandate single-h1 hierarchy mapping inside `<main>`.
 
-## 6. What is Incomplete and Why
-To meet the sprint timeline effectively, the following shortcuts were taken:
-- **Local JSON Releases & Storage**: Instead of wiring an external database + blob storage for published immutable JSONs, `fs` writes to the `/releases` root dir.
-- **Auth Provider Bypass**: Actual RBAC integration with an external JWT provider (like NextAuth or Clerk) was simulated in `middleware.ts` reading cookie toggles for standard demonstration velocity.
-- **Redux History Stack (Undo/Redo)**: Opted for persistence and immediate edits, bypassing command stack snapshots for `Cmd+Z` logic due to complexity.
-- **Dynamic Contentful Delivery Key Sync**: A hardcoded `.env` environment assumption exists for `CONTENTFUL_X_TOKEN`.
+Accessibility is enforced through both implementation and automation:
 
----
-*Run `npm run dev` to boot locally. Run `npx playwright test` to output CI accessibility JSON reports.*
+- keyboard-selectable studio controls without nested interactive wrappers
+- visible `focus-visible` rings on editor and preview controls
+- labelled form controls in the property editor, with `aria-invalid` and accessible error text
+- reduced-motion-aware transitions via `motion-safe`
+- Playwright + axe checks that write `a11y-report.json`
+- CI fails if any critical axe violations are found
+
+## 6. What Is Incomplete and Why
+
+The repository is runnable and automated, but a few environment-dependent items still require project secrets or external setup:
+
+- real Contentful data requires valid `CONTENTFUL_*` environment variables
+- Vercel deployment requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` GitHub secrets
+- production auth still uses role header/cookie simulation for the sprint instead of a full identity provider
+
+## Local Commands
+
+```bash
+npm ci
+npm run typecheck
+npm run lint
+npm run test:unit
+npm run build
+npm run test:e2e
+```

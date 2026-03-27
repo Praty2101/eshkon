@@ -14,7 +14,7 @@ describe("Schema Validation", () => {
           props: {
             heading: "Welcome",
             ctaLabel: "Click me",
-            ctaUrl: "https://example.com"
+            ctaUrl: "/studio/landing"
           }
         }
       ]
@@ -24,8 +24,8 @@ describe("Schema Validation", () => {
     expect(result.success).toBe(true);
   });
 
-  it("fails when a section has an unknown type", () => {
-    const invalidPage = {
+  it("allows unknown section types so the renderer can show a fallback", () => {
+    const validPageWithUnknownSection = {
       pageId: "123",
       slug: "home",
       title: "Home",
@@ -38,8 +38,8 @@ describe("Schema Validation", () => {
       ]
     };
 
-    const result = validatePage(invalidPage);
-    expect(result.success).toBe(false);
+    const result = validatePage(validPageWithUnknownSection);
+    expect(result.success).toBe(true);
   });
 
   it("fails when section props are invalid", () => {

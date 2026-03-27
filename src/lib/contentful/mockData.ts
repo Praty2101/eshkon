@@ -18,7 +18,7 @@ export const mockPages: Record<string, Page> = {
           subheading:
             "A schema-driven page studio with real-time editing, version control, and accessibility built in.",
           ctaLabel: "Get Started",
-          ctaUrl: "https://example.com/start",
+          ctaUrl: "/get-started",
         },
       },
       {
@@ -78,7 +78,7 @@ export const mockPages: Record<string, Page> = {
           heading: "Ready to Get Started?",
           subheading: "Create your first page in under 5 minutes.",
           buttonLabel: "Start Building",
-          buttonUrl: "https://example.com/signup",
+          buttonUrl: "/get-started",
           variant: "primary",
         },
       },
@@ -96,7 +96,7 @@ export const mockPages: Record<string, Page> = {
           heading: "The All-in-One CMS Studio",
           subheading: "From draft to published in minutes — not days.",
           ctaLabel: "View Demo",
-          ctaUrl: "https://example.com/demo",
+          ctaUrl: "/preview/product",
         },
       },
       {
@@ -106,7 +106,7 @@ export const mockPages: Record<string, Page> = {
           heading: "Join the Beta",
           subheading: "Limited spots available. Get early access today.",
           buttonLabel: "Request Access",
-          buttonUrl: "https://example.com/beta",
+          buttonUrl: "/get-started",
           variant: "secondary",
         },
       },

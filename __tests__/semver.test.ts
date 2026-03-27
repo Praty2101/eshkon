@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { diffPages } from "../src/lib/publish/semver";
+import { compareSemVer, diffPages } from "../src/lib/publish/semver";
 import type { Page } from "../src/lib/schema";
 
 const basePage: Page = {
@@ -88,5 +88,40 @@ describe("SemVer Diff Logic", () => {
     const current: Page = { ...basePage, title: "New Title text" };
     const diff = diffPages(basePage, current);
     expect(diff.bump).toBe("patch");
+  });
+
+  it("returns patch for removing an optional prop", () => {
+    const previous: Page = {
+      ...basePage,
+      sections: [
+        {
+          id: "s1",
+          type: "hero",
+          props: {
+            heading: "Old Heading",
+            subheading: "Optional copy",
+          },
+        },
+      ],
+    };
+
+    const current: Page = {
+      ...basePage,
+      sections: [
+        {
+          id: "s1",
+          type: "hero",
+          props: { heading: "Old Heading" },
+        },
+      ],
+    };
+
+    const diff = diffPages(previous, current);
+    expect(diff.bump).toBe("patch");
+  });
+
+  it("sorts semantic versions numerically", () => {
+    expect(compareSemVer("1.0.10", "1.0.2")).toBeGreaterThan(0);
+    expect(compareSemVer("2.0.0", "10.0.0")).toBeLessThan(0);
   });
 });

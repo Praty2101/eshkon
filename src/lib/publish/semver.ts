@@ -1,4 +1,8 @@
-import type { Page } from "@/lib/schema";
+import {
+  isKnownSectionType,
+  sectionFieldMetadata,
+  type Page,
+} from "@/lib/schema";
 
 export type BumpType = "patch" | "minor" | "major";
 
@@ -54,23 +58,36 @@ export function diffPages(previous: Page, current: Page): DiffResult {
       continue;
     }
 
+    const currentType = currSection.type;
+
     // Compare props
     const prevProps = prevSection.props;
     const currProps = currSection.props;
+    const fieldMetadata = isKnownSectionType(currentType)
+      ? sectionFieldMetadata[currentType]
+      : null;
+    const requiredProps = new Set(fieldMetadata?.required ?? []);
+    const optionalProps = new Set(fieldMetadata?.optional ?? []);
 
     // Check for removed required props → major
     for (const key of Object.keys(prevProps)) {
       if (!(key in currProps)) {
         changes.push(`REMOVED prop "${key}" from section ${currSection.id}`);
-        bump = "major";
+        if (requiredProps.has(key)) {
+          bump = "major";
+        }
       }
     }
 
-    // Check for added props → minor
+    // Check for added props
     for (const key of Object.keys(currProps)) {
       if (!(key in prevProps)) {
         changes.push(`ADDED prop "${key}" to section ${currSection.id}`);
-        if (bump !== "major") bump = "minor";
+        if (requiredProps.has(key)) {
+          bump = "major";
+        } else if (optionalProps.has(key) && bump !== "major") {
+          bump = "minor";
+        }
       }
     }
 
@@ -110,6 +127,15 @@ export function parseSemVer(version: string): { major: number; minor: number; pa
     minor: parseInt(match[2], 10),
     patch: parseInt(match[3], 10),
   };
+}
+
+export function compareSemVer(a: string, b: string): number {
+  const left = parseSemVer(a);
+  const right = parseSemVer(b);
+
+  if (left.major !== right.major) return left.major - right.major;
+  if (left.minor !== right.minor) return left.minor - right.minor;
+  return left.patch - right.patch;
 }
 
 /**

@@ -1,11 +1,16 @@
 import { z } from "zod";
 
+const pageLinkSchema = z.union([
+  z.string().url("Must be a valid URL or internal path"),
+  z.string().regex(/^\/[^\s]*$/, "Must be a valid URL or internal path"),
+]);
+
 // ── Hero Section ──────────────────────────────────────────────
 export const HeroPropsSchema = z.object({
   heading: z.string().min(1, "Heading is required"),
   subheading: z.string().optional(),
   ctaLabel: z.string().optional(),
-  ctaUrl: z.string().url("Must be a valid URL").optional(),
+  ctaUrl: pageLinkSchema.optional(),
   backgroundImageUrl: z.string().url().optional(),
 });
 export type HeroProps = z.infer<typeof HeroPropsSchema>;
@@ -38,7 +43,7 @@ export const CtaPropsSchema = z.object({
   heading: z.string().min(1, "Heading is required"),
   subheading: z.string().optional(),
   buttonLabel: z.string().min(1, "Button label is required"),
-  buttonUrl: z.string().url("Must be a valid URL"),
+  buttonUrl: pageLinkSchema,
   variant: z.enum(["primary", "secondary", "outline"]).optional(),
 });
 export type CtaProps = z.infer<typeof CtaPropsSchema>;
@@ -46,6 +51,7 @@ export type CtaProps = z.infer<typeof CtaPropsSchema>;
 // ── Section type map ─────────────────────────────────────────
 export const SectionType = z.enum(["hero", "featureGrid", "testimonial", "cta"]);
 export type SectionType = z.infer<typeof SectionType>;
+const knownSectionTypes = new Set<string>(SectionType.options);
 
 export const sectionPropsSchemaMap: Record<SectionType, z.ZodTypeAny> = {
   hero: HeroPropsSchema,
@@ -54,20 +60,60 @@ export const sectionPropsSchemaMap: Record<SectionType, z.ZodTypeAny> = {
   cta: CtaPropsSchema,
 };
 
+export const sectionFieldMetadata: Record<
+  SectionType,
+  {
+    required: string[];
+    optional: string[];
+  }
+> = {
+  hero: {
+    required: ["heading"],
+    optional: ["subheading", "ctaLabel", "ctaUrl", "backgroundImageUrl"],
+  },
+  featureGrid: {
+    required: ["heading", "features"],
+    optional: ["subheading"],
+  },
+  testimonial: {
+    required: ["quote", "author"],
+    optional: ["role", "avatarUrl"],
+  },
+  cta: {
+    required: ["heading", "buttonLabel", "buttonUrl"],
+    optional: ["subheading", "variant"],
+  },
+};
+
+function validateKnownSection(
+  section: {
+    type: string;
+    props: Record<string, unknown>;
+  },
+  ctx: z.RefinementCtx
+) {
+  if (!isKnownSectionType(section.type)) {
+    return;
+  }
+
+  const result = sectionPropsSchemaMap[section.type].safeParse(section.props);
+  if (!result.success) {
+    for (const issue of result.error.issues) {
+      ctx.addIssue({
+        code: "custom",
+        message: issue.message,
+        path: ["props", ...issue.path],
+      });
+    }
+  }
+}
+
 // ── Section ──────────────────────────────────────────────────
 export const SectionSchema = z.object({
   id: z.string().min(1),
-  type: SectionType,
+  type: z.string().min(1),
   props: z.record(z.string(), z.unknown()),
-}).refine(
-  (section) => {
-    const schema = sectionPropsSchemaMap[section.type as SectionType];
-    if (!schema) return false;
-    const result = schema.safeParse(section.props);
-    return result.success;
-  },
-  { message: "Section props do not match the section type schema" }
-);
+}).superRefine(validateKnownSection);
 export type Section = z.infer<typeof SectionSchema>;
 
 // ── Page ─────────────────────────────────────────────────────
@@ -115,4 +161,8 @@ export function validateSectionProps(
     return { success: true, data: result.data as Record<string, unknown> };
   }
   return { success: false, errors: result.error };
+}
+
+export function isKnownSectionType(value: string): value is SectionType {
+  return knownSectionTypes.has(value);
 }

@@ -7,8 +7,10 @@ export {
   TestimonialPropsSchema, 
   CtaPropsSchema,
   sectionPropsSchemaMap,
+  sectionFieldMetadata,
   validatePage,
   validateSectionProps,
+  isKnownSectionType,
 } from './section';
 export type { 
   Page, 

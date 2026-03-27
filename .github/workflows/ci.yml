@@ -16,20 +16,20 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Lint
         run: npm run lint
 
       - name: Unit Tests (Vitest)
-        run: npx vitest run
+        run: npm run test:unit
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
@@ -38,7 +38,7 @@ jobs:
         run: npm run build
 
       - name: E2E and A11y Tests (Playwright)
-        run: npx playwright test
+        run: npm run test:e2e
 
       - name: Upload Accessibility Report
         uses: actions/upload-artifact@v4

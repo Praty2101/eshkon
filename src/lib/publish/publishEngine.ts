@@ -1,5 +1,10 @@
 import type { Page } from "@/lib/schema";
-import { diffPages, bumpVersion, pagesAreIdentical } from "./semver";
+import {
+  compareSemVer,
+  diffPages,
+  bumpVersion,
+  pagesAreIdentical,
+} from "./semver";
 import fs from "fs/promises";
 import path from "path";
 
@@ -20,6 +25,10 @@ function getSlugDir(slug: string): string {
   return path.join(RELEASES_DIR, slug);
 }
 
+function getVersionFromFilename(fileName: string): string {
+  return fileName.replace(/\.json$/, "");
+}
+
 /**
  * Get the latest release for a slug, or null if none exists.
  */
@@ -34,8 +43,9 @@ export async function getLatestRelease(slug: string): Promise<Release | null> {
   const files = await fs.readdir(slugDir);
   const versionFiles = files
     .filter((f) => f.endsWith(".json"))
-    .sort()
-    .reverse();
+    .sort((left, right) =>
+      compareSemVer(getVersionFromFilename(right), getVersionFromFilename(left))
+    );
 
   if (versionFiles.length === 0) return null;
 
@@ -55,7 +65,11 @@ export async function getAllReleases(slug: string): Promise<Release[]> {
   }
 
   const files = await fs.readdir(slugDir);
-  const versionFiles = files.filter((f) => f.endsWith(".json")).sort();
+  const versionFiles = files
+    .filter((f) => f.endsWith(".json"))
+    .sort((left, right) =>
+      compareSemVer(getVersionFromFilename(left), getVersionFromFilename(right))
+    );
 
   const releases: Release[] = [];
   for (const file of versionFiles) {
@@ -103,9 +117,21 @@ export async function publishPage(draft: Page): Promise<Release | null> {
 
   // Save immutable snapshot
   const slugDir = getSlugDir(draft.slug);
+  const releasePath = path.join(slugDir, `${version}.json`);
   await fs.mkdir(slugDir, { recursive: true });
+
+  try {
+    const existing = await fs.readFile(releasePath, "utf-8");
+    const parsed = JSON.parse(existing) as Release;
+    if (pagesAreIdentical(parsed.snapshot, draft)) {
+      return null;
+    }
+  } catch {
+    // File does not exist yet, so this publish can proceed.
+  }
+
   await fs.writeFile(
-    path.join(slugDir, `${version}.json`),
+    releasePath,
     JSON.stringify(release, null, 2),
     "utf-8"
   );

@@ -1,6 +1,7 @@
+import { cookies, headers } from "next/headers";
+import { getUserRole, hasPermission } from "@/lib/auth";
 import { fetchPageBySlug, isContentfulConfigured } from "@/lib/contentful";
 import { getMockPage } from "@/lib/contentful/mockData";
-import { validatePage, type Page } from "@/lib/schema";
 import { StudioClient } from "./StudioClient";
 
 interface StudioPageProps {
@@ -9,14 +10,15 @@ interface StudioPageProps {
 
 export default async function StudioPage({ params }: StudioPageProps) {
   const { slug } = await params;
+  const requestHeaders = await headers();
+  const requestCookies = await cookies();
+  const userRole = getUserRole(requestHeaders, requestCookies);
 
   let pageData = null;
 
   if (isContentfulConfigured()) {
     pageData = await fetchPageBySlug(slug, true); // Always use draft in studio
-  }
-
-  if (!pageData) {
+  } else {
     pageData = getMockPage(slug);
   }
 
@@ -36,8 +38,11 @@ export default async function StudioPage({ params }: StudioPageProps) {
     );
   }
 
-  const validation = validatePage(pageData);
-  const page = validation.success ? validation.data : (pageData as Page);
-
-  return <StudioClient initialPage={page} />;
+  return (
+    <StudioClient
+      initialPageData={pageData}
+      storageKey={`page-studio-draft:${slug}`}
+      canPublish={hasPermission(userRole, "publisher")}
+    />
+  );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import type { CtaProps } from "@/lib/schema";
+import { SectionLink } from "./SectionLink";
 
 export function CtaSection({ heading, subheading, buttonLabel, buttonUrl, variant = "primary" }: CtaProps) {
   const variantClasses: Record<string, string> = {
@@ -27,16 +28,15 @@ export function CtaSection({ heading, subheading, buttonLabel, buttonUrl, varian
           </p>
         )}
         <div className="mt-10">
-          <a
+          <SectionLink
             href={buttonUrl}
-            role="button"
             className={`inline-flex items-center rounded-full px-8 py-4 text-base font-semibold shadow-lg transition-all hover:shadow-xl hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 motion-safe:transition-transform ${variantClasses[variant || "primary"]}`}
           >
             {buttonLabel}
             <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
-          </a>
+          </SectionLink>
         </div>
       </div>
     </section>
